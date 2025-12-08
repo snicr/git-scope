@@ -1,0 +1,23 @@
+# Binaries
+/dist
+/build
+/bin
+/git-scope
+
+# Logs and temp files
+*.log
+*.tmp
+*.swp
+*~
+
+# Cache
+.git-scope-cache.json
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
