@@ -1,11 +1,17 @@
 package tui
 
 import (
+	"time"
+
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/Bharath-code/git-scope/internal/cache"
 	"github.com/Bharath-code/git-scope/internal/config"
 	"github.com/Bharath-code/git-scope/internal/model"
 	"github.com/Bharath-code/git-scope/internal/scan"
 )
+
+// Cache max age - use cached data if less than 5 minutes old
+const cacheMaxAge = 5 * time.Minute
 
 // Run starts the Bubbletea TUI application
 func Run(cfg *config.Config) error {
@@ -18,17 +24,38 @@ func Run(cfg *config.Config) error {
 // scanReposCmd is a command that scans for repositories
 func scanReposCmd(cfg *config.Config) tea.Cmd {
 	return func() tea.Msg {
+		// Try to load from cache first
+		cacheStore := cache.NewFileStore()
+		cached, err := cacheStore.Load()
+		
+		if err == nil && cacheStore.IsValid(cacheMaxAge) && cacheStore.IsSameRoots(cfg.Roots) {
+			// Use cached data but trigger background refresh
+			return scanCompleteMsg{
+				repos:    cached.Repos,
+				fromCache: true,
+			}
+		}
+		
+		// Scan fresh
 		repos, err := scan.ScanRoots(cfg.Roots, cfg.Ignore)
 		if err != nil {
 			return scanErrorMsg{err: err}
 		}
-		return scanCompleteMsg{repos: repos}
+		
+		// Save to cache
+		_ = cacheStore.Save(repos, cfg.Roots)
+		
+		return scanCompleteMsg{
+			repos:    repos,
+			fromCache: false,
+		}
 	}
 }
 
 // scanCompleteMsg is sent when scanning is complete
 type scanCompleteMsg struct {
-	repos []model.Repo
+	repos     []model.Repo
+	fromCache bool
 }
 
 // scanErrorMsg is sent when scanning fails

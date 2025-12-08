@@ -21,7 +21,7 @@ func (m Model) renderContent() string {
 		b.WriteString(m.renderLoading())
 	case StateError:
 		b.WriteString(m.renderError())
-	case StateReady:
+	case StateReady, StateSearching:
 		b.WriteString(m.renderDashboard())
 	}
 
@@ -31,13 +31,11 @@ func (m Model) renderContent() string {
 func (m Model) renderLoading() string {
 	var b strings.Builder
 
-	// Header
 	b.WriteString(compactLogo())
 	b.WriteString("  ")
 	b.WriteString(loadingStyle.Render("⏳ Scanning repositories..."))
 	b.WriteString("\n\n")
 
-	// Scanning paths
 	b.WriteString(subtitleStyle.Render("Searching for git repos in:"))
 	b.WriteString("\n")
 	for _, root := range m.cfg.Roots {
@@ -47,7 +45,6 @@ func (m Model) renderLoading() string {
 	}
 	b.WriteString("\n")
 
-	// Help
 	b.WriteString(helpStyle.Render("Press " + helpKeyStyle.Render("q") + " to quit"))
 
 	return b.String()
@@ -56,13 +53,11 @@ func (m Model) renderLoading() string {
 func (m Model) renderError() string {
 	var b strings.Builder
 
-	// Header with error indicator
 	b.WriteString(compactLogo())
 	b.WriteString("  ")
 	b.WriteString(errorTitleStyle.Render("✗ Error"))
 	b.WriteString("\n")
 
-	// Error box
 	errContent := ""
 	if m.err != nil {
 		errContent = m.err.Error()
@@ -72,7 +67,6 @@ func (m Model) renderError() string {
 	b.WriteString(errorBoxStyle.Render(errContent))
 	b.WriteString("\n\n")
 
-	// Help
 	b.WriteString(helpItem("q", "quit"))
 	b.WriteString("  •  ")
 	b.WriteString(helpItem("r", "retry"))
@@ -87,7 +81,13 @@ func (m Model) renderDashboard() string {
 	b.WriteString(compactLogo())
 	b.WriteString("\n\n")
 
-	// Stats bar
+	// Search bar (show when searching or has active search)
+	if m.state == StateSearching || m.searchQuery != "" {
+		b.WriteString(m.renderSearchBar())
+		b.WriteString("\n")
+	}
+
+	// Stats bar with filter indicator
 	b.WriteString(m.renderStats())
 	b.WriteString("\n\n")
 
@@ -111,8 +111,38 @@ func (m Model) renderDashboard() string {
 	return b.String()
 }
 
+func (m Model) renderSearchBar() string {
+	searchStyle := lipgloss.NewStyle().
+		BorderStyle(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("#7C3AED")).
+		Padding(0, 1)
+
+	if m.state == StateSearching {
+		// Show active search input
+		label := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#7C3AED")).
+			Bold(true).
+			Render("🔍 Search: ")
+		return searchStyle.Render(label + m.textInput.View())
+	}
+	
+	// Show current search query as badge
+	searchBadge := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#FFFFFF")).
+		Background(lipgloss.Color("#7C3AED")).
+		Padding(0, 1).
+		Render("🔍 " + m.searchQuery)
+	
+	clearHint := lipgloss.NewStyle().
+		Foreground(mutedColor).
+		Render(" (press c to clear)")
+	
+	return searchBadge + clearHint
+}
+
 func (m Model) renderStats() string {
 	total := len(m.repos)
+	shown := len(m.sortedRepos)
 	dirty := 0
 	clean := 0
 	for _, r := range m.repos {
@@ -123,8 +153,13 @@ func (m Model) renderStats() string {
 		}
 	}
 
-	stats := []string{
-		statsBadgeStyle.Render(fmt.Sprintf("📁 %d repos", total)),
+	stats := []string{}
+	
+	// Show count with filter info
+	if shown == total {
+		stats = append(stats, statsBadgeStyle.Render(fmt.Sprintf("📁 %d repos", total)))
+	} else {
+		stats = append(stats, statsBadgeStyle.Render(fmt.Sprintf("📁 %d/%d repos", shown, total)))
 	}
 	
 	if dirty > 0 {
@@ -132,6 +167,17 @@ func (m Model) renderStats() string {
 	}
 	if clean > 0 {
 		stats = append(stats, cleanBadgeStyle.Render(fmt.Sprintf("✓ %d clean", clean)))
+	}
+	
+	// Filter indicator
+	if m.filterMode != FilterAll {
+		filterBadge := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#000000")).
+			Background(lipgloss.Color("#60A5FA")).
+			Padding(0, 1).
+			Bold(true).
+			Render("⚡ " + m.GetFilterModeName())
+		stats = append(stats, filterBadge)
 	}
 	
 	// Sort indicator
@@ -146,7 +192,6 @@ func (m Model) renderStats() string {
 }
 
 func (m Model) renderLegend() string {
-	// Legend showing what the indicators mean
 	legend := lipgloss.NewStyle().
 		Foreground(mutedColor).
 		MarginTop(1)
@@ -173,12 +218,22 @@ func (m Model) renderLegend() string {
 func (m Model) renderHelp() string {
 	var items []string
 
-	items = append(items, helpItem("↑↓", "navigate"))
-	items = append(items, helpItem("enter", "open"))
-	items = append(items, helpItem("s", "sort"))
-	items = append(items, helpItem("1-4", "sort by"))
-	items = append(items, helpItem("r", "rescan"))
-	items = append(items, helpItem("q", "quit"))
+	if m.state == StateSearching {
+		// Search mode help
+		items = append(items, helpItem("type", "search"))
+		items = append(items, helpItem("enter", "apply"))
+		items = append(items, helpItem("esc", "cancel"))
+	} else {
+		// Normal mode help
+		items = append(items, helpItem("↑↓", "nav"))
+		items = append(items, helpItem("enter", "open"))
+		items = append(items, helpItem("/", "search"))
+		items = append(items, helpItem("f", "filter"))
+		items = append(items, helpItem("s", "sort"))
+		items = append(items, helpItem("c", "clear"))
+		items = append(items, helpItem("r", "rescan"))
+		items = append(items, helpItem("q", "quit"))
+	}
 
-	return helpStyle.Render(strings.Join(items, "  •  "))
+	return helpStyle.Render(strings.Join(items, " • "))
 }

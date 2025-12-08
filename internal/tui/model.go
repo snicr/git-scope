@@ -3,8 +3,10 @@ package tui
 import (
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/charmbracelet/bubbles/table"
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/Bharath-code/git-scope/internal/config"
@@ -18,6 +20,7 @@ const (
 	StateLoading State = iota
 	StateReady
 	StateError
+	StateSearching
 )
 
 // SortMode represents different sorting options
@@ -30,24 +33,37 @@ const (
 	SortByLastCommit
 )
 
+// FilterMode represents different filter options
+type FilterMode int
+
+const (
+	FilterAll FilterMode = iota
+	FilterDirty
+	FilterClean
+)
+
 // Model is the Bubbletea model for the TUI
 type Model struct {
-	cfg        *config.Config
-	table      table.Model
-	repos      []model.Repo
-	sortedRepos []model.Repo  // Sorted copy for display
-	state      State
-	err        error
-	statusMsg  string
-	width      int
-	height     int
-	sortMode   SortMode
+	cfg         *config.Config
+	table       table.Model
+	textInput   textinput.Model
+	repos       []model.Repo
+	filteredRepos []model.Repo  // After filter applied
+	sortedRepos []model.Repo   // After sort applied
+	state       State
+	err         error
+	statusMsg   string
+	width       int
+	height      int
+	sortMode    SortMode
+	filterMode  FilterMode
+	searchQuery string
 }
 
 // NewModel creates a new TUI model
 func NewModel(cfg *config.Config) Model {
 	columns := []table.Column{
-		{Title: "Status", Width: 6},
+		{Title: "Status", Width: 8},
 		{Title: "Repository", Width: 18},
 		{Title: "Branch", Width: 14},
 		{Title: "Staged", Width: 6},
@@ -85,11 +101,19 @@ func NewModel(cfg *config.Config) Model {
 		
 	t.SetStyles(s)
 
+	// Create text input for search
+	ti := textinput.New()
+	ti.Placeholder = "Search repos..."
+	ti.CharLimit = 50
+	ti.Width = 30
+
 	return Model{
-		cfg:      cfg,
-		table:    t,
-		state:    StateLoading,
-		sortMode: SortByDirty,
+		cfg:        cfg,
+		table:      t,
+		textInput:  ti,
+		state:      StateLoading,
+		sortMode:   SortByDirty,
+		filterMode: FilterAll,
 	}
 }
 
@@ -111,10 +135,45 @@ func (m Model) GetSelectedRepo() *model.Repo {
 	return nil
 }
 
-// sortRepos sorts repos based on current sort mode
+// applyFilter filters repos based on current filter mode and search query
+func (m *Model) applyFilter() {
+	m.filteredRepos = make([]model.Repo, 0, len(m.repos))
+	
+	for _, r := range m.repos {
+		// Apply filter mode
+		switch m.filterMode {
+		case FilterDirty:
+			if !r.Status.IsDirty {
+				continue
+			}
+		case FilterClean:
+			if r.Status.IsDirty {
+				continue
+			}
+		}
+		
+		// Apply search query
+		if m.searchQuery != "" {
+			query := strings.ToLower(m.searchQuery)
+			name := strings.ToLower(r.Name)
+			path := strings.ToLower(r.Path)
+			branch := strings.ToLower(r.Status.Branch)
+			
+			if !strings.Contains(name, query) && 
+			   !strings.Contains(path, query) &&
+			   !strings.Contains(branch, query) {
+				continue
+			}
+		}
+		
+		m.filteredRepos = append(m.filteredRepos, r)
+	}
+}
+
+// sortRepos sorts the filtered repos based on current sort mode
 func (m *Model) sortRepos() {
-	m.sortedRepos = make([]model.Repo, len(m.repos))
-	copy(m.sortedRepos, m.repos)
+	m.sortedRepos = make([]model.Repo, len(m.filteredRepos))
+	copy(m.sortedRepos, m.filteredRepos)
 	
 	switch m.sortMode {
 	case SortByDirty:
@@ -139,8 +198,9 @@ func (m *Model) sortRepos() {
 	}
 }
 
-// updateTable refreshes the table with current sorted repos
+// updateTable refreshes the table with current filtered and sorted repos
 func (m *Model) updateTable() {
+	m.applyFilter()
 	m.sortRepos()
 	m.table.SetRows(reposToRows(m.sortedRepos))
 }
@@ -158,6 +218,19 @@ func (m Model) GetSortModeName() string {
 		return "Recent"
 	}
 	return "Unknown"
+}
+
+// GetFilterModeName returns the display name of current filter mode
+func (m Model) GetFilterModeName() string {
+	switch m.filterMode {
+	case FilterAll:
+		return "All"
+	case FilterDirty:
+		return "Dirty Only"
+	case FilterClean:
+		return "Clean Only"
+	}
+	return "All"
 }
 
 // reposToRows converts repos to table rows with status indicators
