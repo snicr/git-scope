@@ -25,6 +25,7 @@ Usage:
 Commands:
   (default)   Launch TUI dashboard
   scan        Scan and print repos (JSON)
+  scan-all    Full system scan from home directory (with stats)
   init        Create config file interactively
   help        Show this help
 
@@ -32,6 +33,7 @@ Examples:
   git-scope                    # Scan configured dirs or current dir
   git-scope ~/code ~/work      # Scan specific directories
   git-scope scan .             # Scan current directory (JSON)
+  git-scope scan-all           # Find ALL repos on your system
   git-scope init               # Setup config interactively
 
 Flags:
@@ -51,7 +53,7 @@ func main() {
 	// Parse command and directories
 	if len(args) >= 1 {
 		switch args[0] {
-		case "scan", "tui", "help", "init", "-h", "--help":
+		case "scan", "tui", "help", "init", "scan-all", "-h", "--help":
 			cmd = args[0]
 			dirs = args[1:]
 		default:
@@ -96,6 +98,10 @@ func main() {
 		if err := scan.PrintJSON(os.Stdout, repos); err != nil {
 			log.Fatalf("print error: %v", err)
 		}
+
+	case "scan-all":
+		runScanAll()
+		return
 
 	case "tui", "":
 		if err := tui.Run(cfg); err != nil {
@@ -198,6 +204,12 @@ func runInit() {
 	
 	// Get directories
 	fmt.Println("Enter directories to scan for git repos (one per line, empty line to finish):")
+	fmt.Println()
+	fmt.Println("💡 Path hints:")
+	fmt.Println("   • Use ~/folder for home-relative paths (e.g., ~/code)")
+	fmt.Println("   • Use absolute paths like /Users/you/projects")
+	fmt.Println("   • Use . for current directory")
+	fmt.Println()
 	fmt.Println("Examples: ~/code, ~/projects, ~/work")
 	fmt.Println()
 	
@@ -254,4 +266,65 @@ func runInit() {
 	}
 	fmt.Printf("   Editor: %s\n", editor)
 	fmt.Println("\n🚀 Run 'git-scope' to launch the dashboard!")
+}
+
+// runScanAll performs a full system scan starting from home directory
+func runScanAll() {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		log.Fatalf("Failed to get home directory: %v", err)
+	}
+
+	fmt.Println("🔍 Full System Scan — Finding all git repositories...")
+	fmt.Printf("📁 Scanning from: %s\n\n", home)
+	fmt.Println("⏳ This may take a while depending on your disk size...")
+	fmt.Println()
+
+	// Use common ignore patterns
+	ignorePatterns := []string{
+		"node_modules", ".next", "dist", "build", "target",
+		".venv", "vendor", ".Trash", "Library", ".cache",
+		".npm", ".yarn", ".cargo", ".rustup", ".go",
+	}
+
+	repos, err := scan.ScanRoots([]string{home}, ignorePatterns)
+	if err != nil {
+		log.Fatalf("scan error: %v", err)
+	}
+
+	// Calculate stats
+	dirty := 0
+	clean := 0
+	for _, r := range repos {
+		if r.Status.IsDirty {
+			dirty++
+		} else {
+			clean++
+		}
+	}
+
+	// Display summary
+	fmt.Println()
+	fmt.Println("═══════════════════════════════════════════════════")
+	fmt.Println("                    📊 SCAN COMPLETE")
+	fmt.Println("═══════════════════════════════════════════════════")
+	fmt.Printf("   📦 Total repos found:  %d\n", len(repos))
+	fmt.Printf("   ● Dirty (needs work):  %d\n", dirty)
+	fmt.Printf("   ✓ Clean:               %d\n", clean)
+	fmt.Println("═══════════════════════════════════════════════════")
+	fmt.Println()
+
+	// Show dirty repos
+	if dirty > 0 {
+		fmt.Println("⚠️  Dirty repos that need attention:")
+		for _, r := range repos {
+			if r.Status.IsDirty {
+				fmt.Printf("   • %s (%s) - %s\n", r.Name, r.Status.Branch, r.Path)
+			}
+		}
+		fmt.Println()
+	}
+
+	fmt.Println("💡 To add these directories to your config, run: git-scope init")
+	fmt.Println("💡 Or run: git-scope ~/path/to/folder to scan specific folders")
 }

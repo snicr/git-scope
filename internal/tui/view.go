@@ -77,9 +77,15 @@ func (m Model) renderError() string {
 func (m Model) renderDashboard() string {
 	var b strings.Builder
 
-	// Header with logo
-	b.WriteString(compactLogo())
+	// Header with logo on its own line
+	logo := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#A78BFA")).Render("git-scope")
+	version := lipgloss.NewStyle().Foreground(lipgloss.Color("#6B7280")).Render(" v0.2.1")
+	b.WriteString(logo + version)
 	b.WriteString("\n\n")
+
+	// Stats bar (always show first for consistent layout)
+	b.WriteString(m.renderStats())
+	b.WriteString("\n")
 
 	// Search bar (show when searching or has active search)
 	if m.state == StateSearching || m.searchQuery != "" {
@@ -87,9 +93,7 @@ func (m Model) renderDashboard() string {
 		b.WriteString("\n")
 	}
 
-	// Stats bar with filter indicator
-	b.WriteString(m.renderStats())
-	b.WriteString("\n\n")
+	b.WriteString("\n")
 
 	// Table
 	b.WriteString(m.table.View())
