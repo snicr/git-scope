@@ -415,14 +415,15 @@
             <h1>Control Your <br> <span class="gradient-text">Git Universe</span></h1>
             <p class="subtitle">
                 A blazing fast TUI to manage, search, and clean up all your repositories.<br>
-                See everything at a glance. Zero config required.
+                Runs on <strong>macOS</strong>, <strong>Linux</strong>, and <strong>Windows</strong>.
             </p>
 
             <div class="install-section">
                 <div class="tabs">
-                    <button class="tab-btn active" onclick="switchTab('brew')">Homebrew Tap</button>
-                    <button class="tab-btn" onclick="switchTab('go')">Go Install</button>
-                    <button class="tab-btn" onclick="switchTab('manual')">Manual</button>
+                    <button class="tab-btn active" onclick="switchTab('brew')">Homebrew (Mac/Linux)</button>
+                    <button class="tab-btn" onclick="switchTab('go')">Go Install (All)</button>
+                    <button class="tab-btn" onclick="switchTab('windows')">Windows</button>
+                    <button class="tab-btn" onclick="switchTab('manual')">Binary</button>
                 </div>
 
                 <div class="install-box" onclick="copyCode()">
@@ -438,10 +439,21 @@
                                 github.com/Bharath-code/git-scope/cmd/git-scope@latest</span></div>
                     </div>
 
+                    <div id="code-windows" class="code-block">
+                        <span class="comment"># PowerShell (Go required)</span>
+                        <div><span class="prompt">></span><span class="cmd">go install
+                                github.com/Bharath-code/git-scope/cmd/git-scope@latest</span></div>
+                        <span class="comment"># Or download .exe from Releases</span>
+                    </div>
+
                     <div id="code-manual" class="code-block">
                         <span class="comment"># Download binary from Releases page, then:</span>
                         <div><span class="prompt">$</span><span class="cmd">./git-scope</span></div>
                     </div>
+                </div>
+
+                <div style="margin-top: 2rem; font-size: 0.9rem; color: var(--text-muted)">
+                    <p>Supports Windows Powershell, WSL, Linux shells, and macOS.</p>
                 </div>
             </div>
         </section>
@@ -501,47 +513,47 @@
     </div>
 
     <script>
-    // Star Count Fetcher
-    fetch('https://api.github.com/repos/Bharath-code/git-scope')
-        .then(response => response.json())
-        .then(data => {
-            if (data.stargazers_count !== undefined) {
-                const count = data.stargazers_count;
-                // Format: 1.2k if > 1000
-                const formatted = count > 1000 ? (count/1000).toFixed(1) + 'k' : count;
-                document.getElementById('star-count').textContent = `Star ${formatted}`;
-            }
-        })
-        .catch(err => console.log('Failed to fetch stars', err));
+        // Star Count Fetcher
+        fetch('https://api.github.com/repos/Bharath-code/git-scope')
+            .then(response => response.json())
+            .then(data => {
+                if (data.stargazers_count !== undefined) {
+                    const count = data.stargazers_count;
+                    // Format: 1.2k if > 1000
+                    const formatted = count > 1000 ? (count / 1000).toFixed(1) + 'k' : count;
+                    document.getElementById('star-count').textContent = `Star ${formatted}`;
+                }
+            })
+            .catch(err => console.log('Failed to fetch stars', err));
 
-    // Tabs
-    function switchTab(id) {
-        // Headers
-        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-        event.target.classList.add('active');
-        
-        // Content
-        document.querySelectorAll('.code-block').forEach(b => b.classList.remove('active'));
-        document.getElementById('code-' + id).classList.add('active');
-    }
+        // Tabs
+        function switchTab(id) {
+            // Headers
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            event.target.classList.add('active');
 
-    // Copy
-    function copyCode() {
-        const activeBlock = document.querySelector('.code-block.active');
-        let text = "";
-        activeBlock.querySelectorAll('.cmd').forEach(el => text += el.innerText + "\n");
-        text = text.trim();
-        
-        navigator.clipboard.writeText(text).then(() => {
-            const hint = document.querySelector('.copy-hint');
-            const original = hint.innerText;
-            hint.innerText = "Copied!";
-            hint.style.opacity = '1';
-            setTimeout(() => {
-                hint.innerText = original;
-            }, 2000);
-        });
-    }
+            // Content
+            document.querySelectorAll('.code-block').forEach(b => b.classList.remove('active'));
+            document.getElementById('code-' + id).classList.add('active');
+        }
+
+        // Copy
+        function copyCode() {
+            const activeBlock = document.querySelector('.code-block.active');
+            let text = "";
+            activeBlock.querySelectorAll('.cmd').forEach(el => text += el.innerText + "\n");
+            text = text.trim();
+
+            navigator.clipboard.writeText(text).then(() => {
+                const hint = document.querySelector('.copy-hint');
+                const original = hint.innerText;
+                hint.innerText = "Copied!";
+                hint.style.opacity = '1';
+                setTimeout(() => {
+                    hint.innerText = original;
+                }, 2000);
+            });
+        }
     </script>
 
 </body>
