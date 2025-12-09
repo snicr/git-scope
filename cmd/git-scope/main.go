@@ -245,6 +245,13 @@ func runInit() {
 		log.Fatalf("Failed to create config: %v", err)
 	}
 
-	fmt.Printf("\n✅ Config created at: %s\n", configPath)
-	fmt.Println("\nRun 'git-scope' to launch the dashboard!")
+	fmt.Printf("\n✅ Config created successfully!\n")
+	fmt.Printf("\n📁 Location: %s\n", configPath)
+	fmt.Println("\n📝 Configuration:")
+	fmt.Println("   Directories to scan:")
+	for _, d := range dirs {
+		fmt.Printf("     • %s\n", d)
+	}
+	fmt.Printf("   Editor: %s\n", editor)
+	fmt.Println("\n🚀 Run 'git-scope' to launch the dashboard!")
 }

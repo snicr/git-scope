@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"fmt"
 	"os/exec"
 
 	"github.com/charmbracelet/bubbles/textinput"
@@ -22,7 +23,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.repos = msg.repos
 		m.state = StateReady
 		m.updateTable()
-		m.statusMsg = ""
+		
+		// Show helpful message if no repos found
+		if len(msg.repos) == 0 {
+			m.statusMsg = fmt.Sprintf("⚠️  No git repos found in configured directories. Press 'r' to rescan or run 'git-scope init' to configure.")
+		} else if msg.fromCache {
+			m.statusMsg = fmt.Sprintf("✓ Loaded %d repos from cache", len(msg.repos))
+		} else {
+			m.statusMsg = fmt.Sprintf("✓ Found %d repos", len(msg.repos))
+		}
 		return m, nil
 
 	case scanErrorMsg:
@@ -31,6 +40,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case openEditorMsg:
+		// Check if editor exists in PATH before trying to launch
+		_, err := exec.LookPath(m.cfg.Editor)
+		if err != nil {
+			m.statusMsg = fmt.Sprintf("❌ Editor '%s' not found. Press 'e' to change editor or install it first.", m.cfg.Editor)
+			return m, nil
+		}
+		
 		c := exec.Command(m.cfg.Editor, msg.path)
 		return m, tea.ExecProcess(c, func(err error) tea.Msg {
 			if err != nil {
@@ -146,7 +162,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case "e":
 			if m.state == StateReady {
-				m.statusMsg = "Editor: " + m.cfg.Editor + " (change in ~/.config/git-scope/config.yml)"
+				// Check if editor exists
+				_, err := exec.LookPath(m.cfg.Editor)
+				if err != nil {
+					m.statusMsg = fmt.Sprintf("❌ Editor '%s' not found in PATH. Install it or edit ~/.config/git-scope/config.yml", m.cfg.Editor)
+				} else {
+					m.statusMsg = fmt.Sprintf("✓ Editor: %s (edit config at ~/.config/git-scope/config.yml)", m.cfg.Editor)
+				}
 				return m, nil
 			}
 		}
