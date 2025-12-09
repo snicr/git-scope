@@ -16,12 +16,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		// Adjust table height based on window size
-		tableHeight := m.height - 12
-		if tableHeight < 5 {
-			tableHeight = 5
-		}
-		m.table.SetHeight(tableHeight)
+		m.resizeTable()
 
 	case scanCompleteMsg:
 		m.repos = msg.repos
@@ -67,6 +62,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Enter search mode
 			if m.state == StateReady {
 				m.state = StateSearching
+				m.resizeTable()
 				m.textInput.Focus()
 				m.textInput.SetValue(m.searchQuery)
 				return m, textinput.Blink
@@ -142,6 +138,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.state == StateReady {
 				m.searchQuery = ""
 				m.filterMode = FilterAll
+				m.resizeTable()
 				m.updateTable()
 				m.statusMsg = "Filters cleared"
 				return m, nil
@@ -167,6 +164,7 @@ func (m Model) handleSearchMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "esc":
 		// Cancel search, keep previous query
 		m.state = StateReady
+		m.resizeTable()
 		m.textInput.Blur()
 		return m, nil
 		
@@ -174,6 +172,7 @@ func (m Model) handleSearchMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// Apply search
 		m.searchQuery = m.textInput.Value()
 		m.state = StateReady
+		m.resizeTable()
 		m.textInput.Blur()
 		m.updateTable()
 		if m.searchQuery != "" {

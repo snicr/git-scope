@@ -156,11 +156,10 @@ func (m *Model) applyFilter() {
 		if m.searchQuery != "" {
 			query := strings.ToLower(m.searchQuery)
 			name := strings.ToLower(r.Name)
-			path := strings.ToLower(r.Path)
 			branch := strings.ToLower(r.Status.Branch)
 			
+			// Only search Name and Branch to avoid matching parent paths
 			if !strings.Contains(name, query) && 
-			   !strings.Contains(path, query) &&
 			   !strings.Contains(branch, query) {
 				continue
 			}
@@ -275,4 +274,20 @@ func formatNumber(n int) string {
 		return "—"
 	}
 	return fmt.Sprintf("%d", n)
+}
+
+// resizeTable calculates and sets the correct table height based on UI state
+func (m *Model) resizeTable() {
+	usedHeight := 12 // Header + Stats + Legend + Help + Padding
+	if m.state == StateSearching {
+		usedHeight += 3 // Search input
+	} else if m.searchQuery != "" {
+		usedHeight += 1 // Search badge
+	}
+	
+	h := m.height - usedHeight
+	if h < 1 {
+		h = 1
+	}
+	m.table.SetHeight(h)
 }
