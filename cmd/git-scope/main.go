@@ -280,11 +280,25 @@ func runScanAll() {
 	fmt.Println("⏳ This may take a while depending on your disk size...")
 	fmt.Println()
 
-	// Use common ignore patterns
+	// Ignore common non-user directories (third-party tools, extensions, system)
 	ignorePatterns := []string{
-		"node_modules", ".next", "dist", "build", "target",
-		".venv", "vendor", ".Trash", "Library", ".cache",
-		".npm", ".yarn", ".cargo", ".rustup", ".go",
+		// Build artifacts
+		"node_modules", ".next", "dist", "build", "target", ".output",
+		// Package managers
+		".npm", ".yarn", ".pnpm", ".bun",
+		// Language runtimes
+		".cargo", ".rustup", ".go", ".venv", "vendor", ".pyenv", ".rbenv", ".nvm",
+		// System/OS
+		".Trash", "Library", ".cache", ".local",
+		// IDE/Editor extensions (third-party repos)
+		".vscode", ".vscode-server", ".gemini", ".cursor", ".zed",
+		".atom", ".sublime-text", ".idea",
+		// Config directories (often contain extension repos)
+		".config", ".docker", ".kube", ".ssh", ".gnupg",
+		// Other tools
+		".oh-my-zsh", ".tmux", ".vim", ".emacs.d",
+		// Cloud/sync
+		"Google Drive", "OneDrive", "Dropbox", "iCloud",
 	}
 
 	repos, err := scan.ScanRoots([]string{home}, ignorePatterns)
