@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://bharath-code.github.io/git-scope/sitemap.xml
